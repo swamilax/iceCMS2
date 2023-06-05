@@ -22,6 +22,12 @@ class AbstractAuthorization implements AuthorizationInterface
     /** @var User|null */
     protected static ?User $_user = null;
 
+    /** @var array */
+    public array $errors = [];
+
+    /**
+     * @param Settings $settings
+     */
     public function __construct(Settings $settings)
     {
         $this->_settings = $settings;
@@ -58,9 +64,23 @@ class AbstractAuthorization implements AuthorizationInterface
 
     /**
      * @inheritDoc
+     * @throws Exception
      */
     public function getAuthStatus(): bool
     {
+        if (session_status() !== PHP_SESSION_ACTIVE){
+            session_start();
+        }
+
+        if (is_null(self::$_user)) {
+            if (!empty($_SESSION['user'])) {
+                $user = new User($this->_settings);
+                if ($user->load((int)$_SESSION['user'])) {
+                    self::$_user = $user;
+                }
+            }
+        }
+
         return !is_null(self::$_user);
     }
 

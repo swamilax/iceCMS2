@@ -19,6 +19,27 @@ use iceCMS2\Types\UnixTime;
 
 class User extends AbstractEntity
 {
+    /** @var string User status created */
+    public const STATUS_CREATED = 'created';
+    /** @var string User status active */
+    public const STATUS_ACTIVE = 'active';
+    /** @var string User status deleted */
+    public const STATUS_DELETED = 'deleted';
+
+    /** @var string User role user */
+    public const ROLE_USER = 'user';
+    /** @var string User role moderator */
+    public const ROLE_MODERATOR = 'moderator';
+    /** @var string User role admin */
+    public const ROLE_ADMIN = 'admin';
+
+    /** @var string User sex male */
+    public const SEX_MALE = 'male';
+    /** @var string User sex female */
+    public const SEX_FEMALE = 'female';
+    /** @var string User sex other */
+    public const SEX_OTHER = 'other';
+
     /** @var int Avatar image size in px */
     private const AVATAR_SIZE = 200;
 
@@ -40,14 +61,14 @@ class User extends AbstractEntity
     /** @var array|null Validators for values by key */
     protected ?array $_validators = [
         'password' => 'password',
-        'email' => 'email',
+        'email' => ['email', 'uniqueString'],
         'phone' => 'phone|empty',
         'telegram' => 'telegram|empty',
         'language' => 'language',
         'name' => 'string|empty',
         'nikname' => 'uniqueString',
-        'status' => 'status',
-        'role' => 'role',
+        'status' => 'enum',
+        'role' => 'enum',
         'rating' => 'float',
         'avatar' => 'int|empty',
         'email_approve_code' => 'string|empty',
@@ -56,14 +77,15 @@ class User extends AbstractEntity
         'phone_approve_code' => 'string|empty',
         'phone_approved' => 'int',
         'phone_send_time' => 'unixtime|empty',
-        'created_time' => 'nowUnixtime',
-        'sex' => 'sex',
+        'created_time' => 'unixtime|empty',
+        'sex' => 'enum',
         'contacts' => 'json|empty',
     ];
 
     /** @var array|null Modificators for values by key */
     protected ?array $_modificators = [
         'password' => 'password',
+        'created_time' => 'nowUnixtime',
     ];
 
     /**

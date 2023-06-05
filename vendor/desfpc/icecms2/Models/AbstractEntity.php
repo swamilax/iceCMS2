@@ -84,6 +84,7 @@ abstract class AbstractEntity
         $this->_settings = $settings;
         $this->_db = DBFactory::get($this->_settings);
         $this->_db->connect();
+
         $this->_cacher = CachingFactory::instance($this->_settings);
 
         $this->_getTableCols();
@@ -193,7 +194,17 @@ abstract class AbstractEntity
     {
         if (is_array($this->_validators) && isset($this->_validators[$key])) {
             $validator = $this->_validators[$key];
-            return ValidatorFactory::validate($validator, $value);
+
+            if (!is_array($validator)) {
+                return ValidatorFactory::validate($this->_db, $this->_settings, $validator, $value, $this->_dbtable, $key);
+            } else {
+                foreach ($validator as $v) {
+                    if (!ValidatorFactory::validate($this->_db, $this->_settings, $v, $value, $this->_dbtable, $key)) {
+                        return false;
+                    }
+                }
+                return true;
+            }
         }
 
         return true;
@@ -249,10 +260,11 @@ abstract class AbstractEntity
      * Function that runs when get error while getting Entity DB table columns
      *
      * @return void
+     * @throws Exception
      */
     protected function _ifGetTableColsError(): void
     {
-
+        throw new Exception('Error while getting table columns for "' . $this->_dbtable . '"');
     }
 
     /**
@@ -293,6 +305,7 @@ abstract class AbstractEntity
              * @var array $prepariedValues
              */
             [$preparedSQL, $preparedValues] = $this->_getEntitySaveData($isUpdateOnDuplicateKey);
+
             if ($res = $this->_db->queryBinded($preparedSQL, $preparedValues)) {
                 if (is_null($this->_id) && empty($this->_idKeys)) {
                     if (is_int($res) && is_null($this->_idColumns)) {

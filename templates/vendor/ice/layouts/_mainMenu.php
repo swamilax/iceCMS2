@@ -11,7 +11,29 @@ declare(strict_types=1);
  */
 
 use iceCMS2\Controller\AbstractController;
+use iceCMS2\Models\User;
 
+
+$ifModeratorOrAdmin = false;
+
+if ($this->authorization->getAuthStatus()) {
+
+    /** @var User $user */
+    $user = $this->authorization->getUser();
+
+    try {
+        $ifModeratorOrAdmin = in_array($user->get('role'), [User::ROLE_ADMIN, User::ROLE_MODERATOR]);
+    } catch (\iceCMS2\Tools\Exception $e) {
+        //do nothing
+    }
+
+    $authorized = true;
+} else {
+    $authorized = false;
+}
+if ($authorized && in_array($user->get('role'), [User::ROLE_ADMIN, User::ROLE_MODERATOR])) {
+    include_once('_adminMenu.php');
+}
 ?>
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
     <div class="container">
@@ -33,12 +55,26 @@ use iceCMS2\Controller\AbstractController;
                         echo 'active';
                     } ?>" href="/hello-world/">HelloWorld</a>
                 </li>
-                <li class="nav-item">
+                <?php if ($ifModeratorOrAdmin === true){ ?><li class="nav-item">
                     <a class="nav-link <?php if ($this->routing->route['controller'] === 'Admin'){
                         echo 'active';
                     } ?>" href="/admin/">Admin</a>
-                </li>
+                </li><?php } ?>
             </ul>
-        </div>
+        </div><?php
+        if ($authorized) {
+            ?>
+            <div class="justify-content-end main-menu-user">
+                <a href="/profile"><?= $user->get('email') ?></a>
+                <br><a href="/exit">Logout</a>
+            </div>
+            <?php
+        } else {
+            ?>
+            <div class="justify-content-end main-menu-user">
+                <a href="/authorize">Login</a>
+            </div>
+            <?php
+        } ?>
     </div>
 </nav>

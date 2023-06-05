@@ -17,6 +17,7 @@ use iceCMS2\Settings\Settings;
 use iceCMS2\Tools\FlashVars;
 use iceCMS2\Tools\Exception;
 use iceCMS2\Tools\RequestParameters;
+use JetBrains\PhpStorm\NoReturn;
 
 abstract class AbstractController implements ControllerInterface
 {
@@ -40,6 +41,9 @@ abstract class AbstractController implements ControllerInterface
 
     /** @var Routing|null Routing data */
     public ?Routing $routing = null;
+
+    /** @var array|null Breadcrumbs array */
+    public ?array $breadcrumbs = null;
 
     /** @var string Site Page Title */
     public string $title = '';
@@ -83,7 +87,6 @@ abstract class AbstractController implements ControllerInterface
         $this->routing = $routing;
         $this->settings = $settings;
         $this->authorization = AuthorizationFactory::instance($this->settings, static::AUTHORIZE_TYPE);
-        $this->readAlerts();
         $this->requestParameters = new RequestParameters();
     }
 
@@ -107,6 +110,10 @@ abstract class AbstractController implements ControllerInterface
      */
     public function main(): void
     {
+        $this->breadcrumbs = [
+            ['title' => 'Main', 'url' => '/'],
+        ];
+
         $this->renderTemplate('main');
     }
 
@@ -119,6 +126,8 @@ abstract class AbstractController implements ControllerInterface
      */
     public function renderTemplate(?string $template = null, bool $isFullTemplatePatch = false): void
     {
+        $this->readAlerts();
+
         if (is_null($template)) {
             $dbt=debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS,2);
             $template = $dbt[1]['function'] ?? 'main';
@@ -318,12 +327,48 @@ abstract class AbstractController implements ControllerInterface
     }
 
     /**
+     * Simple redirect
+     *
+     * @param string $url
+     * @param int $code
+     * @param bool $noDie
+     * @return void
+     * @throws Exception
+     * @SuppressWarnings(PHPMD)
+     */
+    protected function _redirect(string $url, int $code = 303, bool $noDie = false): void
+    {
+        $codeNames = [
+            301 => 'Moved Permanently',
+            302 => 'Found',
+            303 => 'See Other',
+            307 => 'Temporary Redirect',
+        ];
+
+        if (!isset($codeNames[$code])) {
+            throw new Exception('Invalid redirect code: ' . $code);
+        }
+
+        //$headers = $this->_getDefaultHeaders();
+        $headers[] = 'Location: ' . $url;
+        //$headers[] = 'HTTP/1.1 ' . $code . ' ' . $codeNames[$code];
+
+        foreach ($headers as $header) {
+            header($header);
+        }
+
+        if ($noDie) {
+            die();
+        }
+    }
+
+    /**
      * Echo headers for redirect to authorization page
      *
      * @return void
      * @SuppressWarnings(PHPMD)
      */
-    protected function _authorizeRedirect(): void
+    #[NoReturn] protected function _authorizeRedirect(): void
     {
         $headers = $this->_getDefaultHeaders();
         $headers[] = 'Location: ' . static::AUTHORIZE_REDIRECT_URL . '?redirect=' . urlencode($_SERVER['REQUEST_URI']);
@@ -345,6 +390,36 @@ abstract class AbstractController implements ControllerInterface
     {
         if ($this->authorization->getAuthStatus() === false || !$this->authorization->authorizeRequest()) {
             $this->_authorizeRedirect();
+        }
+    }
+
+    /**
+     * Check authorization for action method if needed special role (run it in the top of action, that need
+     * authorization)
+     *
+     * @param string|array $role
+     * @return void
+     * @throws Exception
+     */
+    protected function _authorizationCheckRole(string|array $role): void
+    {
+        $this->_authorizationCheck();
+
+        $user = $this->authorization->getUser();
+
+        if (is_null($user)) {
+            $this->_authorizeRedirect();
+        }
+
+        if (is_array($role)) {
+            if (!in_array($user->get('role'), $role)) {
+                $this->_redirect('/404');
+                //$this->_authorizeRedirect();
+            }
+        } else {
+            if ($user->get('role') !== $role) {
+                $this->_authorizeRedirect();
+            }
         }
     }
 }
